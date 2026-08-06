@@ -124,14 +124,14 @@ function renderTable(customers) {
   $('empty').classList.toggle('hidden', customers.length > 0);
   tbody.innerHTML = customers.map((c) => `
     <tr data-id="${c.partner_id}">
-      <td>${c.needs_visit ? '<span class="needs-visit-flag">●</span> ' : ''}${esc(c.name)}</td>
-      <td>${esc(c.area)}</td>
-      <td>${c.oldest_days > 0 ? c.oldest_days + 'd' : 'Not due'}</td>
-      <td>${money.format(c.total_open)}</td>
-      <td>${c.overdue_total > 0 ? money.format(c.overdue_total) : '—'}</td>
-      <td>${statusPill(c)}</td>
-      <td>${c.next_action_date || '—'}</td>
-      <td>${c.lat != null ? '📍' : ''}</td>
+      <td class="al-right cell-customer">${c.needs_visit ? '<span class="needs-visit-flag">●</span> ' : ''}<bdi>${esc(c.name)}</bdi></td>
+      <td class="al-center">${esc(c.area)}</td>
+      <td class="al-center">${c.oldest_days > 0 ? c.oldest_days + 'd' : 'Not due'}</td>
+      <td class="al-right nums">${money.format(c.total_open)}</td>
+      <td class="al-right nums">${c.overdue_total > 0 ? money.format(c.overdue_total) : '—'}</td>
+      <td class="al-center">${statusPill(c)}</td>
+      <td class="al-center">${c.next_action_date || '—'}</td>
+      <td class="al-center">${c.lat != null ? '📍' : ''}</td>
     </tr>`).join('');
   tbody.querySelectorAll('tr').forEach((tr) => {
     tr.addEventListener('click', () => openDrawer(Number(tr.dataset.id)));

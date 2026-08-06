@@ -60,10 +60,16 @@
 
   <div class="table-scroll" id="table-scroll">
     <table id="table">
+      <colgroup>
+        <col class="col-customer"><col class="col-area"><col class="col-oldest">
+        <col class="col-amount"><col class="col-amount"><col class="col-status">
+        <col class="col-next"><col class="col-pin">
+      </colgroup>
       <thead>
         <tr>
-          <th>Customer</th><th>Area</th><th>Oldest</th><th>Total Open</th>
-          <th>Overdue</th><th>Status</th><th>Next action</th><th></th>
+          <th class="al-right">Customer</th><th class="al-center">Area</th><th class="al-center">Oldest</th>
+          <th class="al-right">Total Open</th><th class="al-right">Overdue</th>
+          <th class="al-center">Status</th><th class="al-center">Next action</th><th class="al-center">📍</th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>

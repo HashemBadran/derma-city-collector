@@ -10,3 +10,6 @@ tracker.db-shm
 .env.local
 .vercel
 .DS_Store
+
+.vercel
+.env*

@@ -117,14 +117,36 @@ main { padding: 18px 20px 60px; max-width: 1400px; margin: 0 auto; }
   height: calc(100vh - 420px); min-height: 220px; max-height: 85vh;
   border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
 }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+/* table-layout: fixed + explicit column widths (via <colgroup>) — without
+   this the browser auto-sizes each column from its content, and a table
+   mixing short English headers with long Arabic names and mostly-empty
+   cells ends up with wildly uneven, gappy columns. */
+table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+col.col-customer { width: 30%; }
+col.col-area { width: 9%; }
+col.col-oldest { width: 9%; }
+col.col-amount { width: 14%; }
+col.col-status { width: 12%; }
+col.col-next { width: 11%; }
+col.col-pin { width: 5%; }
+
 thead th {
   position: sticky; top: 0; z-index: 2; background: var(--surface-2); color: var(--text-dim);
   font-size: 11px; text-transform: uppercase; letter-spacing: .04em; font-weight: 650;
-  text-align: right; padding: 9px 12px; border-bottom: 1px solid var(--border-strong);
+  padding: 9px 12px; border-bottom: 1px solid var(--border-strong);
 }
-thead th:first-child, td:first-child { text-align: left; }
+/* Header alignment always matches its column's data alignment (al-right /
+   al-center below) so numbers and headers actually line up — previously
+   headers defaulted to right/left while body cells had no alignment rule
+   at all, so a column like "Total Open" never sat above its own numbers. */
+.al-right { text-align: right; }
+.al-center { text-align: center; }
 tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); }
+tbody td.nums { font-variant-numeric: tabular-nums; }
+/* Customer names are Arabic; <bdi> keeps each name's own right-to-left flow
+   correct regardless of the table's overall left-to-right column order, and
+   the column truncates rather than wraps so row heights stay even. */
+.cell-customer { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 tbody tr { cursor: pointer; }
 tbody tr:hover { background: var(--surface-2); }
 .pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 650; }
