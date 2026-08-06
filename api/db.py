@@ -123,6 +123,13 @@ CREATE TABLE IF NOT EXISTS customer_meta (
     -- agency-assigned accounts.
     assigned         INTEGER NOT NULL DEFAULT 0,
     assigned_source  TEXT NOT NULL DEFAULT '',
+    -- Handed off to a collection agency -- still a real receivable (stays in
+    -- every total), but the collector is done actively chasing it: excluded
+    -- from the weekly plan, broken-promise/follow-up alerts, and hidden from
+    -- the customer list by default.
+    agency           INTEGER NOT NULL DEFAULT 0,
+    agency_date      TEXT NOT NULL DEFAULT '',
+    agency_note      TEXT NOT NULL DEFAULT '',
     promise_date     TEXT NOT NULL DEFAULT '',
     promise_amount   REAL NOT NULL DEFAULT 0,
     next_action_date TEXT NOT NULL DEFAULT '',
@@ -312,14 +319,41 @@ def connect():
     return Conn(client)
 
 
+# Columns added to customer_meta after it already held real collector data
+# (assignments, statuses, locations) — CREATE TABLE IF NOT EXISTS is a no-op
+# against an existing table, so a brand-new column needs an explicit ALTER
+# TABLE instead, the same way the receivables tracker migrates old databases
+# forward without losing anyone's follow-up history.
+MIGRATIONS = {
+    'customer_meta': [
+        ('agency', 'INTEGER NOT NULL DEFAULT 0'),
+        ('agency_date', "TEXT NOT NULL DEFAULT ''"),
+        ('agency_note', "TEXT NOT NULL DEFAULT ''"),
+    ],
+}
+
+
 def init():
-    """Create every table and index if it does not already exist, then seed
-    the script bank if it's empty."""
+    """Create every table and index if it does not already exist, add any
+    columns an older database is missing, then seed the script bank."""
     conn = connect()
     try:
-        for st in (s.strip() for s in SCHEMA.split(';')):
-            if st:
-                conn.execute(st)
+        statements = [st.strip() for st in SCHEMA.split(';') if st.strip()]
+        tables = [st for st in statements if 'CREATE INDEX' not in st.upper()]
+        indexes = [st for st in statements if 'CREATE INDEX' in st.upper()]
+
+        for st in tables:
+            conn.execute(st)
+        for table, columns in MIGRATIONS.items():
+            existing = {r['name'] for r in conn.execute(f'PRAGMA table_info({table})', []).fetchall()}
+            if not existing:
+                continue
+            for name, spec in columns:
+                if name not in existing:
+                    conn.execute(f'ALTER TABLE {table} ADD COLUMN {name} {spec}')
+        for st in indexes:
+            conn.execute(st)
+
         import scripts_seed
         scripts_seed.seed_if_empty(conn)
     finally:

@@ -89,6 +89,7 @@ main { padding: 18px 20px 60px; max-width: 1400px; margin: 0 auto; }
 .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-dim); }
 .stat-value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .stat.hot .stat-value, .stat-value.hot { color: var(--danger); }
+.stat.muted .stat-value { color: var(--text-dim); font-size: 15px; font-weight: 600; }
 
 .alerts { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
 .alert-card {
@@ -155,6 +156,19 @@ tbody tr:hover { background: var(--surface-2); }
 .pill.status-resolved { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
 .pill.status-new, .pill.status-contacted { background: var(--surface-2); color: var(--text-dim); }
 .needs-visit-flag { color: var(--warn); font-weight: 700; }
+.pill-agency {
+  background: color-mix(in srgb, var(--text-dim) 20%, transparent); color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: .03em; font-size: 9.5px; margin-right: 4px;
+}
+tr.row-agency { opacity: .6; }
+tr.row-agency:hover { opacity: 1; }
+.agency-box {
+  margin: 10px 0; padding: 8px 10px; border: 1px dashed var(--border-strong); border-radius: 8px;
+}
+.agency-box input[type="text"] {
+  width: 100%; margin-top: 6px; border: 1px solid var(--border-strong); background: var(--surface);
+  color: var(--text); padding: 6px 8px; border-radius: 6px; font-size: 12.5px;
+}
 .empty { text-align: center; color: var(--text-dim); padding: 40px 0; }
 
 /* ---------- drawer ---------- */

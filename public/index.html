@@ -39,9 +39,10 @@
 <!-- ======================= CUSTOMERS ======================= -->
 <section id="view-customers" class="view">
   <div class="summary-row">
-    <div class="stat"><span class="stat-label">Assigned</span><span class="stat-value" id="s-count">0</span></div>
+    <div class="stat"><span class="stat-label">Active book</span><span class="stat-value" id="s-count">0</span></div>
     <div class="stat"><span class="stat-label">Total open</span><span class="stat-value" id="s-open">0</span></div>
     <div class="stat hot"><span class="stat-label">Overdue</span><span class="stat-value" id="s-overdue">0</span></div>
+    <div class="stat muted" id="s-agency-wrap"><span class="stat-label">With agency</span><span class="stat-value" id="s-agency">0</span></div>
     <button id="btn-manage-book" class="btn btn-ghost btn-sm">Manage my book</button>
   </div>
 
@@ -55,6 +56,7 @@
     <label class="check"><input type="checkbox" id="f-overdue"> Has overdue</label>
     <label class="check"><input type="checkbox" id="f-needs-visit"> Needs visit</label>
     <label class="check"><input type="checkbox" id="f-due"> Due today</label>
+    <label class="check"><input type="checkbox" id="f-show-agency"> Show agency accounts</label>
     <button id="f-reset" class="btn btn-ghost btn-sm">Reset</button>
   </div>
 
@@ -153,6 +155,11 @@
         <label>Promise date <input type="date" id="d-promise-date"></label>
         <label>Promise amount <input type="number" id="d-promise-amount"></label>
         <label>Next action date <input type="date" id="d-next-action"></label>
+      </div>
+      <div class="agency-box">
+        <label class="check"><input type="checkbox" id="d-agency"> Handed to a collection agency — stop working this account</label>
+        <p class="sub" id="d-agency-since"></p>
+        <input type="text" id="d-agency-note" placeholder="Which agency, or a note (optional)">
       </div>
       <button id="btn-save-meta" class="btn btn-primary btn-sm">Save</button>
     </details>

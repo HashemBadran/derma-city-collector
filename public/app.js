@@ -76,6 +76,11 @@ async function loadCustomers() {
   if ($('f-overdue').checked) p.set('has_overdue', '1');
   if ($('f-needs-visit').checked) p.set('needs_visit', '1');
   if ($('f-due').checked) p.set('due_only', '1');
+  // 'all' rather than an empty string: the server's query parser
+  // (urllib.parse.parse_qs) drops params with blank values entirely by
+  // default, which would silently collapse this back to the 'hide' default
+  // regardless of the checkbox.
+  p.set('agency', $('f-show-agency').checked ? 'all' : 'hide');
 
   const r = await fetch('/api/customers?' + p.toString());
   const d = await r.json();
@@ -84,6 +89,8 @@ async function loadCustomers() {
   $('s-count').textContent = d.grand_totals.count;
   $('s-open').textContent = money.format(d.grand_totals.total_open);
   $('s-overdue').textContent = money.format(d.grand_totals.overdue_total);
+  $('s-agency').textContent = `${d.agency.count} · ${money.format(d.agency.total_open)}`;
+  $('s-agency-wrap').classList.toggle('hidden', d.agency.count === 0);
 
   const areaSel = $('f-area');
   const currentArea = areaSel.value;
@@ -123,8 +130,8 @@ function renderTable(customers) {
   const tbody = $('tbody');
   $('empty').classList.toggle('hidden', customers.length > 0);
   tbody.innerHTML = customers.map((c) => `
-    <tr data-id="${c.partner_id}">
-      <td class="al-right cell-customer">${c.needs_visit ? '<span class="needs-visit-flag">●</span> ' : ''}<bdi>${esc(c.name)}</bdi></td>
+    <tr data-id="${c.partner_id}" class="${c.agency ? 'row-agency' : ''}">
+      <td class="al-right cell-customer">${c.agency ? '<span class="pill pill-agency">agency</span> ' : ''}${c.needs_visit ? '<span class="needs-visit-flag">●</span> ' : ''}<bdi>${esc(c.name)}</bdi></td>
       <td class="al-center">${esc(c.area)}</td>
       <td class="al-center">${c.oldest_days > 0 ? c.oldest_days + 'd' : 'Not due'}</td>
       <td class="al-right nums">${money.format(c.total_open)}</td>
@@ -158,6 +165,10 @@ async function openDrawer(partnerId) {
   $('d-promise-date').value = d.customer.promise_date || '';
   $('d-promise-amount').value = d.customer.promise_amount || '';
   $('d-next-action').value = d.customer.next_action_date || '';
+  $('d-agency').checked = d.customer.agency;
+  $('d-agency-note').value = d.customer.agency_note || '';
+  $('d-agency-since').textContent = d.customer.agency && d.customer.agency_date
+    ? `Handed off ${d.customer.agency_date}` : '';
 
   renderContacts(d.contacts);
   renderVisits(d.visits);
@@ -263,6 +274,8 @@ async function saveMeta() {
       promise_date: $('d-promise-date').value,
       promise_amount: $('d-promise-amount').value,
       next_action_date: $('d-next-action').value,
+      agency: $('d-agency').checked,
+      agency_note: $('d-agency-note').value,
     }),
   });
   await openDrawer(partnerId);
@@ -661,12 +674,13 @@ function init() {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDrawer(); $('script-modal').classList.add('hidden'); $('book-modal').classList.add('hidden'); $('add-script-modal').classList.add('hidden'); } });
 
   const reload = debounce(loadCustomers, 220);
-  ['f-search', 'f-status', 'f-area', 'f-min', 'f-overdue', 'f-needs-visit', 'f-due'].forEach((id) => {
+  ['f-search', 'f-status', 'f-area', 'f-min', 'f-overdue', 'f-needs-visit', 'f-due', 'f-show-agency'].forEach((id) => {
     $(id).addEventListener('input', reload);
   });
   $('f-reset').addEventListener('click', () => {
     $('f-search').value = ''; $('f-status').value = ''; $('f-area').value = ''; $('f-min').value = '';
     $('f-overdue').checked = false; $('f-needs-visit').checked = false; $('f-due').checked = false;
+    $('f-show-agency').checked = false;
     loadCustomers();
   });
 

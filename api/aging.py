@@ -66,7 +66,7 @@ def build(conn, as_of):
         '       d.line_id, d.doc, d.ref, d.journal, d.inv_date, d.due_date,'
         '       d.original, d.residual,'
         '       m.lat, m.lng, m.location_note, m.status, m.needs_visit,'
-        '       m.assigned, m.assigned_source,'
+        '       m.assigned, m.assigned_source, m.agency, m.agency_date, m.agency_note,'
         '       m.promise_date, m.promise_amount, m.next_action_date, m.updated_at'
         '  FROM customers c'
         '  JOIN documents d ON d.partner_id = c.partner_id'
@@ -97,6 +97,9 @@ def build(conn, as_of):
                 'needs_visit': bool(r['needs_visit']),
                 'assigned': bool(r['assigned']),
                 'assigned_source': r['assigned_source'] or '',
+                'agency': bool(r['agency']),
+                'agency_date': r['agency_date'] or '',
+                'agency_note': r['agency_note'] or '',
                 'promise_date': r['promise_date'] or '',
                 'promise_amount': r['promise_amount'] or 0,
                 'next_action_date': r['next_action_date'] or '',

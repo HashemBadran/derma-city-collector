@@ -56,9 +56,9 @@ def build(customers, as_of, currency):
     ws.merge_cells('A2:L2')
 
     headers = ['#', 'Customer', 'Phone', 'City', 'Area', 'Docs', 'Oldest (days)',
-               'Total Open', 'Overdue', 'Status', 'Needs Visit', 'Next Action',
+               'Total Open', 'Overdue', 'Status', 'Agency', 'Needs Visit', 'Next Action',
                'Promise Date', 'Location Set']
-    widths = [5, 44, 16, 14, 13, 8, 14, 18, 18, 16, 12, 14, 14, 12]
+    widths = [5, 44, 16, 14, 13, 8, 14, 18, 18, 16, 12, 12, 14, 14, 12]
     _header(ws, 4, headers, widths)
 
     r = 5
@@ -86,6 +86,11 @@ def build(customers, as_of, currency):
         col += 1
         ws.cell(row=r, column=col, value=STATUS_LABEL.get(c['status'], c['status'])).alignment = \
             Alignment(horizontal='center'); col += 1
+        ag = ws.cell(row=r, column=col, value=c['agency_date'] if c.get('agency') else '')
+        ag.alignment = Alignment(horizontal='center')
+        if c.get('agency'):
+            ag.fill = WARN_FILL
+        col += 1
         nv = ws.cell(row=r, column=col, value='Yes' if c['needs_visit'] else '')
         nv.alignment = Alignment(horizontal='center')
         if c['needs_visit']:

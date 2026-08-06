@@ -120,6 +120,11 @@ def action_due(c, today_iso):
 
 def filter_customers(customers, params, today_iso):
     assigned_only = params.get('assigned', '1') != '0'
+    # Handed to an agency means the collector is done working the account —
+    # hidden by default the same way the receivables tracker's own agency
+    # flag works, but never actually removed: "only" surfaces exactly who's
+    # been handed off, for whoever needs to check on that.
+    agency_mode = params.get('agency') or 'hide'
     q = (params.get('q') or '').strip().lower()
     status = params.get('status') or ''
     area = params.get('area') or ''
@@ -134,6 +139,10 @@ def filter_customers(customers, params, today_iso):
     out = []
     for c in customers:
         if assigned_only and not c['assigned']:
+            continue
+        if agency_mode == 'hide' and c['agency']:
+            continue
+        if agency_mode == 'only' and not c['agency']:
             continue
         if q and q not in c['name'].lower() and q not in (c['phone'] or '').lower():
             continue
@@ -156,7 +165,7 @@ def filter_customers(customers, params, today_iso):
 def attention_items(customers, today_iso):
     broken, due = [], []
     for c in customers:
-        if not c['assigned']:
+        if not c['assigned'] or c['agency']:
             continue
         if promise_broken(c, today_iso):
             broken.append({'partner_id': c['partner_id'], 'name': c['name'],
@@ -333,6 +342,8 @@ class handler(BaseHTTPRequestHandler):
             c['action_due'] = action_due(c, today_iso)
         filtered = filter_customers(everything, params, today_iso)
         assigned_all = [c for c in everything if c['assigned']]
+        active = [c for c in assigned_all if not c['agency']]
+        handed_off = [c for c in assigned_all if c['agency']]
         self._json({
             'customers': filtered,
             'totals': {
@@ -340,10 +351,18 @@ class handler(BaseHTTPRequestHandler):
                 'total_open': round(sum(c['total_open'] for c in filtered), 2),
                 'overdue_total': round(sum(c['overdue_total'] for c in filtered), 2),
             },
+            # The collector's active book — assigned, still theirs to chase.
             'grand_totals': {
-                'count': len(assigned_all),
-                'total_open': round(sum(c['total_open'] for c in assigned_all), 2),
-                'overdue_total': round(sum(c['overdue_total'] for c in assigned_all), 2),
+                'count': len(active),
+                'total_open': round(sum(c['total_open'] for c in active), 2),
+                'overdue_total': round(sum(c['overdue_total'] for c in active), 2),
+            },
+            # Still a real receivable, still counted in Odoo — just no longer
+            # this collector's to work day to day.
+            'agency': {
+                'count': len(handed_off),
+                'total_open': round(sum(c['total_open'] for c in handed_off), 2),
+                'overdue_total': round(sum(c['overdue_total'] for c in handed_off), 2),
             },
             'attention': attention_items(everything, today_iso),
             'areas': sorted({c['area'] for c in assigned_all if c['area']}),
@@ -435,6 +454,15 @@ class handler(BaseHTTPRequestHandler):
             if 'needs_visit' in payload:
                 sets.append('needs_visit = ?')
                 params.append(1 if payload['needs_visit'] else 0)
+            if 'agency' in payload:
+                is_agency = bool(payload['agency'])
+                sets.append('agency = ?')
+                params.append(1 if is_agency else 0)
+                sets.append('agency_date = ?')
+                params.append(business_today().isoformat() if is_agency else '')
+            if 'agency_note' in payload:
+                sets.append('agency_note = ?')
+                params.append((payload['agency_note'] or '').strip())
             sets.append('updated_at = ?')
             params.append(datetime.now(timezone.utc).isoformat(timespec='seconds'))
             params.append(partner_id)
@@ -687,7 +715,7 @@ class handler(BaseHTTPRequestHandler):
             today_iso = business_today().isoformat()
             for c in everything:
                 c['promise_broken'] = promise_broken(c, today_iso)
-            candidates = [c for c in everything if c['assigned'] and
+            candidates = [c for c in everything if c['assigned'] and not c['agency'] and
                          (c['overdue_total'] > 0 or c['needs_visit'])]
             plan, unplaced = routing.suggest_plan(candidates, days=days)
 
@@ -734,10 +762,10 @@ class handler(BaseHTTPRequestHandler):
                  ' WHERE substr(p.planned_date,1,7) = ?', [month]),
                 ('SELECT m.promise_date AS d, c.name, m.promise_amount, m.partner_id'
                  '  FROM customer_meta m LEFT JOIN customers c ON c.partner_id = m.partner_id'
-                 " WHERE substr(m.promise_date,1,7) = ? AND m.assigned = 1", [month]),
+                 " WHERE substr(m.promise_date,1,7) = ? AND m.assigned = 1 AND m.agency = 0", [month]),
                 ('SELECT m.next_action_date AS d, c.name, m.partner_id'
                  '  FROM customer_meta m LEFT JOIN customers c ON c.partner_id = m.partner_id'
-                 " WHERE substr(m.next_action_date,1,7) = ? AND m.assigned = 1", [month]),
+                 " WHERE substr(m.next_action_date,1,7) = ? AND m.assigned = 1 AND m.agency = 0", [month]),
             ])
             days = {}
             for r in plan_res.fetchall():
