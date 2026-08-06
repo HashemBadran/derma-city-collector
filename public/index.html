@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Derma City Collector</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="dot"></span>
+    <div>
+      <h1>Derma City Collector</h1>
+      <p id="subtitle" class="sub">Loading…</p>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <button id="btn-sync" class="btn btn-primary">Refresh from Odoo</button>
+    <a id="btn-export" class="btn btn-ghost" href="/api/export.xlsx">Export Excel</a>
+    <button id="btn-theme" class="btn btn-icon" title="Toggle theme">◐</button>
+  </div>
+</header>
+
+<div id="sync-banner" class="banner hidden"></div>
+
+<nav class="tabs">
+  <button class="tab active" data-view="customers">Customers</button>
+  <button class="tab" data-view="plan">Weekly Plan</button>
+  <button class="tab" data-view="calendar">Calendar</button>
+  <button class="tab" data-view="scripts">Script Bank</button>
+</nav>
+
+<main>
+
+<!-- ======================= CUSTOMERS ======================= -->
+<section id="view-customers" class="view">
+  <div class="summary-row">
+    <div class="stat"><span class="stat-label">Assigned</span><span class="stat-value" id="s-count">0</span></div>
+    <div class="stat"><span class="stat-label">Total open</span><span class="stat-value" id="s-open">0</span></div>
+    <div class="stat hot"><span class="stat-label">Overdue</span><span class="stat-value" id="s-overdue">0</span></div>
+    <button id="btn-manage-book" class="btn btn-ghost btn-sm">Manage my book</button>
+  </div>
+
+  <div class="alerts" id="alerts"></div>
+
+  <div class="filters">
+    <input type="text" id="f-search" placeholder="Search customer or phone…">
+    <select id="f-status"><option value="">All statuses</option></select>
+    <select id="f-area"><option value="">All areas</option></select>
+    <input type="number" id="f-min" placeholder="Min amount">
+    <label class="check"><input type="checkbox" id="f-overdue"> Has overdue</label>
+    <label class="check"><input type="checkbox" id="f-needs-visit"> Needs visit</label>
+    <label class="check"><input type="checkbox" id="f-due"> Due today</label>
+    <button id="f-reset" class="btn btn-ghost btn-sm">Reset</button>
+  </div>
+
+  <div class="table-scroll" id="table-scroll">
+    <table id="table">
+      <thead>
+        <tr>
+          <th>Customer</th><th>Area</th><th>Oldest</th><th>Total Open</th>
+          <th>Overdue</th><th>Status</th><th>Next action</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <p class="empty hidden" id="empty">No customers match these filters.</p>
+</section>
+
+<!-- ======================= WEEKLY PLAN ======================= -->
+<section id="view-plan" class="view hidden">
+  <div class="plan-toolbar">
+    <label>Week starting <input type="date" id="plan-week"></label>
+    <button id="btn-generate-plan" class="btn btn-primary">Generate suggested plan</button>
+    <span class="sub" id="plan-summary"></span>
+  </div>
+  <div class="plan-layout">
+    <div id="plan-map" class="plan-map"></div>
+    <div class="plan-days" id="plan-days"></div>
+  </div>
+  <div id="plan-unplaced" class="plan-unplaced hidden">
+    <h3>Needs a location before it can be planned</h3>
+    <ul id="plan-unplaced-list"></ul>
+  </div>
+</section>
+
+<!-- ======================= CALENDAR ======================= -->
+<section id="view-calendar" class="view hidden">
+  <div class="cal-toolbar">
+    <button id="cal-prev" class="btn btn-ghost btn-sm">‹</button>
+    <h2 id="cal-title">—</h2>
+    <button id="cal-next" class="btn btn-ghost btn-sm">›</button>
+  </div>
+  <div class="cal-legend">
+    <span class="legend-item"><i class="dot dot-visit"></i> Planned visit</span>
+    <span class="legend-item"><i class="dot dot-promise"></i> Promise due</span>
+    <span class="legend-item"><i class="dot dot-action"></i> Follow-up due</span>
+  </div>
+  <div class="cal-grid" id="cal-grid"></div>
+</section>
+
+<!-- ======================= SCRIPT BANK ======================= -->
+<section id="view-scripts" class="view hidden">
+  <div class="filters">
+    <input type="text" id="script-search" placeholder="Search situations or scripts…">
+    <select id="script-category"><option value="">All categories</option></select>
+    <button id="btn-add-script" class="btn btn-primary btn-sm">+ Add your own</button>
+  </div>
+  <div id="script-list" class="script-list"></div>
+</section>
+
+</main>
+
+<!-- ======================= CUSTOMER DRAWER ======================= -->
+<div id="scrim" class="scrim hidden"></div>
+<aside id="drawer" class="drawer hidden">
+  <div class="drawer-head">
+    <div>
+      <h2 id="d-name">—</h2>
+      <p class="sub" id="d-sub"></p>
+    </div>
+    <button id="drawer-close" class="btn btn-icon">✕</button>
+  </div>
+  <div class="drawer-inner">
+
+    <div class="d-section">
+      <div class="d-figures">
+        <div><span class="stat-label">Total open</span><span id="d-open" class="stat-value">—</span></div>
+        <div><span class="stat-label">Overdue</span><span id="d-overdue-amt" class="stat-value hot">—</span></div>
+        <div><span class="stat-label">Oldest</span><span id="d-oldest" class="stat-value">—</span></div>
+      </div>
+      <a id="d-odoo-link" href="#" target="_blank" class="link-sm">Open in Odoo →</a>
+    </div>
+
+    <details class="d-section" open>
+      <summary>Status &amp; follow-up</summary>
+      <div class="form-grid">
+        <label>Status
+          <select id="d-status"></select>
+        </label>
+        <label class="check"><input type="checkbox" id="d-needs-visit"> Needs a visit this week</label>
+        <label>Promise date <input type="date" id="d-promise-date"></label>
+        <label>Promise amount <input type="number" id="d-promise-amount"></label>
+        <label>Next action date <input type="date" id="d-next-action"></label>
+      </div>
+      <button id="btn-save-meta" class="btn btn-primary btn-sm">Save</button>
+    </details>
+
+    <details class="d-section" open>
+      <summary>Location</summary>
+      <div id="d-map" class="d-map"></div>
+      <div class="form-row">
+        <input type="text" id="d-loc-input" placeholder="Paste a Google Maps link, or 'lat, lng'">
+        <button id="btn-use-location" class="btn btn-ghost btn-sm">Use my location</button>
+        <button id="btn-save-location" class="btn btn-primary btn-sm">Save</button>
+      </div>
+    </details>
+
+    <details class="d-section" open>
+      <summary>Contacts</summary>
+      <div id="d-contacts" class="contact-list"></div>
+      <div class="form-row">
+        <input type="text" id="c-name" placeholder="Name">
+        <input type="text" id="c-position" placeholder="Position">
+        <input type="text" id="c-phone" placeholder="Phone">
+        <button id="btn-add-contact" class="btn btn-ghost btn-sm">+ Add</button>
+      </div>
+    </details>
+
+    <details class="d-section" open>
+      <summary>Log a call or visit</summary>
+      <div class="form-grid">
+        <label>Channel <select id="v-channel"></select></label>
+        <label>Spoke with <select id="v-contact"><option value="">— not specified —</option></select></label>
+        <label>Status <select id="v-status"></select></label>
+        <label>Promise date <input type="date" id="v-promise-date"></label>
+        <label>Promise amount <input type="number" id="v-promise-amount"></label>
+        <label>Next action date <input type="date" id="v-next-action"></label>
+      </div>
+      <label class="block-label">What was said / outcome
+        <textarea id="v-outcome" rows="2"></textarea>
+      </label>
+      <div class="script-hint">
+        <button id="btn-suggest-script" type="button" class="btn btn-ghost btn-sm">📋 What do I say? (Arabic scripts)</button>
+      </div>
+      <label class="block-label">Notes
+        <textarea id="v-notes" rows="2"></textarea>
+      </label>
+      <button id="btn-save-visit" class="btn btn-primary btn-sm">Log this interaction</button>
+      <div id="d-visits" class="visit-list"></div>
+    </details>
+
+    <details class="d-section">
+      <summary>Signed reconciliation</summary>
+      <div id="d-reconciliations" class="recon-list"></div>
+      <div class="form-grid">
+        <label>Amount <input type="number" id="r-amount"></label>
+        <label>Date <input type="date" id="r-date"></label>
+        <label>Signed by <input type="text" id="r-signed-by"></label>
+        <label>Their position <input type="text" id="r-signed-position"></label>
+      </div>
+      <label class="block-label">Photo of the signed document
+        <input type="file" id="r-photo" accept="image/*" capture="environment">
+      </label>
+      <label class="block-label">Notes <textarea id="r-notes" rows="2"></textarea></label>
+      <button id="btn-save-recon" class="btn btn-primary btn-sm">Save reconciliation</button>
+    </details>
+
+    <details class="d-section">
+      <summary>Open receivables (<span id="d-doc-count">0</span>)</summary>
+      <table class="mini-table">
+        <thead><tr><th>Doc</th><th>Due</th><th>Days</th><th>Amount</th></tr></thead>
+        <tbody id="d-documents"></tbody>
+      </table>
+    </details>
+
+  </div>
+</aside>
+
+<!-- ======================= SCRIPT PICKER MODAL ======================= -->
+<div id="script-modal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>What do I say?</h2>
+      <button id="script-modal-close" class="btn btn-icon">✕</button>
+    </div>
+    <input type="text" id="script-modal-search" placeholder="Search what the customer said…">
+    <div id="script-modal-list" class="script-list"></div>
+  </div>
+</div>
+
+<!-- ======================= MANAGE BOOK MODAL ======================= -->
+<div id="book-modal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>Manage my assigned book</h2>
+      <button id="book-modal-close" class="btn btn-icon">✕</button>
+    </div>
+    <p class="sub">Paste customer names, one per line. Matched against your synced Odoo
+      customers automatically — spelling variants are fine.</p>
+    <textarea id="book-names" rows="10" placeholder="شركة دورا الطبية شركة شخص واحد&#10;مجمع الحرمين الاهلي الطبي&#10;…"></textarea>
+    <button id="btn-assign" class="btn btn-primary">Match &amp; add to my book</button>
+    <div id="book-result"></div>
+  </div>
+</div>
+
+<!-- ======================= ADD SCRIPT MODAL ======================= -->
+<div id="add-script-modal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>Add your own script</h2>
+      <button id="add-script-close" class="btn btn-icon">✕</button>
+    </div>
+    <div class="form-grid">
+      <label>Category <input type="text" id="as-category" placeholder="e.g. Asks to delay"></label>
+      <label>When to use it <input type="text" id="as-trigger" placeholder="What the customer said"></label>
+    </div>
+    <label class="block-label">Arabic script <textarea id="as-script" dir="rtl" rows="3"></textarea></label>
+    <label class="block-label">Tip <textarea id="as-tip" rows="2"></textarea></label>
+    <button id="btn-save-script" class="btn btn-primary">Save</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="/app.js"></script>
+</body>
+</html>

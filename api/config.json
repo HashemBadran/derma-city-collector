@@ -1,0 +1,18 @@
+{
+  "odoo": {
+    "url": "https://derma-city.odoo.com",
+    "db": "zad-solutions-derma-city-main-23553142",
+    "username": "",
+    "password": ""
+  },
+  "currency": "SAR",
+  "port": 5090,
+  "timezone": "Asia/Riyadh",
+  "company_ids": [
+    1
+  ],
+  "company_labels": {
+    "1": "Derma City"
+  },
+  "app_label": "Derma City Collector"
+}
