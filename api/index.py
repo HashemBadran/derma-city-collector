@@ -94,7 +94,15 @@ def seconds_since_last_sync(conn):
 
 
 MAPS_PATTERNS = (
-    re.compile(r'@(-?\d+\.\d+),(-?\d+\.\d+)'),   # .../@24.7136,46.6753,15z/...
+    # A full "place" URL (.../place/Name/@lat,lng,zoom/data=...!3dLAT!4dLNG...)
+    # carries two different coordinate pairs: @lat,lng is just wherever the map
+    # viewport happened to be centred (panning or zooming changes it, and nothing
+    # says it matches the pin), while !3d...!4d... is the actual marked place —
+    # Google's own convention for the pin's real location. Checked first, since
+    # trusting @lat,lng instead silently placed a real customer here ~30km off
+    # in testing (same latitude, very different longitude) before this was caught.
+    re.compile(r'!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)'),
+    re.compile(r'@(-?\d+\.\d+),(-?\d+\.\d+)'),   # .../@24.7136,46.6753,15z/... (viewport only)
     re.compile(r'[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)'),  # ?q=24.7136,46.6753
     re.compile(r'^\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*$'),  # bare "24.7136, 46.6753"
 )
