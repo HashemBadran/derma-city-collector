@@ -22,6 +22,14 @@ const money = new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximum
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+// `date.toISOString().slice(0,10)` converts to UTC first — for anyone west
+// of Greenwich that's harmless, but this app's whole audience is Riyadh
+// (UTC+3), where a local midnight becomes 21:00 the *previous* day in UTC,
+// silently shifting every computed date back by one. Caught live: a "Sunday"
+// plan actually started Saturday. Always build the ISO string from the
+// Date's own local getFullYear/getMonth/getDate instead.
+const toLocalISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 function debounce(fn, ms) {
   let t;
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
@@ -45,12 +53,14 @@ async function bootstrap() {
   });
   $('v-channel').innerHTML = state.boot.channels.map((c) => `<option value="${c.key}">${esc(c.label)}</option>`).join('');
 
-  const monday = new Date();
+  // Based on the server's business_today (Asia/Riyadh), not the device's own
+  // clock — a collector's phone timezone shouldn't be able to disagree with
+  // what the app considers "today".
+  const monday = new Date(state.boot.today + 'T00:00:00');
   monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-  state.planWeek = monday.toISOString().slice(0, 10);
+  state.planWeek = toLocalISO(monday);
   $('plan-week').value = state.planWeek;
 
-  const now = new Date();
   state.calMonth = state.boot.today.slice(0, 7);
 }
 
@@ -494,7 +504,7 @@ function workWeekDates() {
   for (let i = 0; i < 5; i++) {
     const d = new Date(start);
     d.setDate(d.getDate() + i);
-    dates.push(d.toISOString().slice(0, 10));
+    dates.push(toLocalISO(d));
   }
   return dates;
 }
@@ -573,7 +583,7 @@ function renderPlanDays() {
   for (let i = 0; i < 6; i++) {
     const date = new Date(state.planWeek + 'T00:00:00');
     date.setDate(date.getDate() + i);
-    const iso = date.toISOString().slice(0, 10);
+    const iso = toLocalISO(date);
     const stops = state.planStops.filter((s) => s.planned_date === iso);
     days.push({ iso, label: dayLabel(i), stops });
   }
