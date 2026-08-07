@@ -29,6 +29,7 @@
 
 <nav class="tabs">
   <button class="tab active" data-view="customers">Customers</button>
+  <button class="tab" data-view="recommendations">Recommendations</button>
   <button class="tab" data-view="plan">Weekly Plan</button>
   <button class="tab" data-view="calendar">Calendar</button>
   <button class="tab" data-view="scripts">Script Bank</button>
@@ -83,6 +84,27 @@
     </table>
   </div>
   <p class="empty hidden" id="empty">No customers match these filters.</p>
+</section>
+
+<!-- ======================= RECOMMENDATIONS ======================= -->
+<section id="view-recommendations" class="view hidden">
+  <div class="rec-header">
+    <div>
+      <h2 id="rec-title">This week's recommended visits</h2>
+      <p class="sub" id="rec-range"></p>
+    </div>
+    <div class="rec-actions">
+      <button id="btn-regen-rec" class="btn btn-ghost btn-sm">Regenerate</button>
+    </div>
+  </div>
+  <p class="sub rec-explainer">Ranked by overdue amount, account age, explicit promises and next-action
+    dates on record, and anything already noted about a planned visit. <span class="rec-new-sample">New</span>
+    means never contacted before — a first introduction, not a follow-up.</p>
+  <div id="rec-days" class="rec-days"></div>
+  <div id="rec-skipped" class="rec-skipped hidden">
+    <h3>Not included this week</h3>
+    <ul id="rec-skipped-list"></ul>
+  </div>
 </section>
 
 <!-- ======================= WEEKLY PLAN ======================= -->

@@ -194,6 +194,12 @@ CREATE TABLE IF NOT EXISTS visit_plan (
     planned_date TEXT NOT NULL,
     status       TEXT NOT NULL DEFAULT 'planned',
     note         TEXT NOT NULL DEFAULT '',
+    -- Why this stop is on this day -- the reasoning behind a recommended
+    -- visit (biggest overdue balance, a promise date landing this week, an
+    -- explicit note about a planned visit, never having been contacted...).
+    -- Blank for a stop added by hand or by the plain proximity generator,
+    -- which has nothing to say beyond the route itself.
+    reason       TEXT NOT NULL DEFAULT '',
     created_at   TEXT NOT NULL,
     UNIQUE(partner_id, planned_date)
 );
@@ -329,6 +335,9 @@ MIGRATIONS = {
         ('agency', 'INTEGER NOT NULL DEFAULT 0'),
         ('agency_date', "TEXT NOT NULL DEFAULT ''"),
         ('agency_note', "TEXT NOT NULL DEFAULT ''"),
+    ],
+    'visit_plan': [
+        ('reason', "TEXT NOT NULL DEFAULT ''"),
     ],
 }
 

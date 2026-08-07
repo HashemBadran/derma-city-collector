@@ -668,8 +668,11 @@ class handler(BaseHTTPRequestHandler):
         conn = db.connect()
         try:
             rows = conn.execute(
-                'SELECT p.id, p.partner_id, p.planned_date, p.status, p.note,'
-                '       c.name, c.phone, c.city, m.lat, m.lng'
+                'SELECT p.id, p.partner_id, p.planned_date, p.status, p.note, p.reason,'
+                '       c.name, c.phone, c.city, m.lat, m.lng, m.status AS customer_status,'
+                '       (SELECT ROUND(SUM(d.residual), 2) FROM documents d'
+                '         WHERE d.partner_id = p.partner_id) AS total_open,'
+                '       (SELECT COUNT(*) FROM visits v WHERE v.partner_id = p.partner_id) AS visit_count'
                 '  FROM visit_plan p'
                 '  LEFT JOIN customers c ON c.partner_id = p.partner_id'
                 '  LEFT JOIN customer_meta m ON m.partner_id = p.partner_id'
@@ -678,8 +681,15 @@ class handler(BaseHTTPRequestHandler):
                 [start, end]).fetchall()
         finally:
             conn.close()
-        self._json({'week_start': start, 'week_end': end,
-                    'stops': [dict(r) for r in rows]})
+        stops = [dict(r) for r in rows]
+        for s in stops:
+            # "New to me" — never contacted before this plan was made, so a
+            # visit here is a first introduction, not a follow-up. Framed
+            # around visit_count rather than status alone: a customer can be
+            # reset to 'new' after a failed contact attempt and still not
+            # really be new to the collector.
+            s['is_new'] = (s['customer_status'] == 'new' and s['visit_count'] == 0)
+        self._json({'week_start': start, 'week_end': end, 'stops': stops})
 
     def api_plan_set(self):
         payload = self._body()
@@ -691,11 +701,12 @@ class handler(BaseHTTPRequestHandler):
         conn = db.connect()
         try:
             conn.execute(
-                'INSERT INTO visit_plan (partner_id, planned_date, status, note, created_at)'
-                ' VALUES (?,?,?,?,?)'
+                'INSERT INTO visit_plan (partner_id, planned_date, status, note, reason, created_at)'
+                ' VALUES (?,?,?,?,?,?)'
                 ' ON CONFLICT(partner_id, planned_date) DO UPDATE SET'
-                '   status = excluded.status, note = excluded.note',
+                '   status = excluded.status, note = excluded.note, reason = excluded.reason',
                 [int(partner_id), planned_date, status, (payload.get('note') or '').strip(),
+                 (payload.get('reason') or '').strip(),
                  datetime.now(timezone.utc).isoformat(timespec='seconds')],
             )
             row = conn.execute(

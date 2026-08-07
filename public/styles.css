@@ -232,6 +232,35 @@ tr.row-agency:hover { opacity: 1; }
 .mini-table td { padding: 4px 6px; border-bottom: 1px solid var(--border); }
 .mini-table td:first-child, .mini-table th:first-child { text-align: left; }
 
+/* ---------- recommendations ---------- */
+.rec-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+.rec-header h2 { margin: 0; font-size: 17px; }
+.rec-explainer { margin: 4px 0 16px; max-width: 720px; }
+.rec-new-sample, .badge-new {
+  display: inline-block; background: color-mix(in srgb, var(--ok) 20%, transparent); color: var(--ok);
+  border-radius: 20px; padding: 1px 8px; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+}
+.rec-days { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.rec-day { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.rec-day h3 {
+  margin: 0; padding: 10px 14px; font-size: 13px; background: var(--surface-2);
+  border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: baseline;
+}
+.rec-day h3 .rec-day-sub { font-size: 11px; color: var(--text-dim); font-weight: 400; }
+.rec-stop { padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+.rec-stop:last-child { border-bottom: none; }
+.rec-stop .rec-stop-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; cursor: pointer; }
+.rec-stop .rec-stop-head:hover .rec-name { color: var(--accent-2); }
+.rec-name { font-weight: 700; }
+.rec-amount { font-variant-numeric: tabular-nums; color: var(--danger); white-space: nowrap; }
+.rec-reason { color: var(--text-dim); margin-top: 4px; line-height: 1.5; }
+.rec-empty { padding: 14px; color: var(--text-dim); font-size: 12.5px; text-align: center; }
+.rec-skipped { margin-top: 20px; }
+.rec-skipped h3 { font-size: 13px; }
+.rec-skipped ul { padding-left: 18px; font-size: 12.5px; color: var(--text-dim); }
+.rec-skipped li { margin-bottom: 3px; cursor: pointer; }
+.rec-skipped li:hover { color: var(--accent-2); }
+
 /* ---------- weekly plan ---------- */
 .plan-toolbar { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; flex-wrap: wrap; }
 .plan-toolbar label { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-dim); }

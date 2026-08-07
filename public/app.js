@@ -61,6 +61,7 @@ function switchView(view) {
   document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.view === view));
   $(`view-${view}`).classList.remove('hidden');
   if (view === 'customers') loadCustomers();
+  if (view === 'recommendations') loadRecommendations();
   if (view === 'plan') loadPlan();
   if (view === 'calendar') loadCalendar();
   if (view === 'scripts') loadScripts();
@@ -477,6 +478,80 @@ function openScriptModal() {
   renderScripts($('script-modal-list'));
 }
 
+// --------------------------------------------------------------- recommendations
+
+function workWeekDates() {
+  // The work week here is Sunday-Thursday (Friday/Saturday are the weekend).
+  // If today already falls inside it, the week starts today rather than
+  // jumping forward — no reason to skip Monday's recommendations just
+  // because it's Monday. Only Friday/Saturday roll forward to next Sunday.
+  const today = new Date(state.boot.today + 'T00:00:00');
+  const day = today.getDay(); // 0=Sun .. 6=Sat
+  const start = new Date(today);
+  if (day === 5) start.setDate(start.getDate() + 2);
+  else if (day === 6) start.setDate(start.getDate() + 1);
+  const dates = [];
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  return dates;
+}
+
+async function loadRecommendations() {
+  const dates = workWeekDates();
+  const r = await fetch('/api/plan?week=' + dates[0]);
+  const d = await r.json();
+  const byDate = {};
+  dates.forEach((iso) => { byDate[iso] = []; });
+  d.stops.forEach((s) => { if (byDate[s.planned_date]) byDate[s.planned_date].push(s); });
+
+  $('rec-range').textContent = `${dates[0]} through ${dates[4]}`;
+
+  $('rec-days').innerHTML = dates.map((iso) => {
+    const dayName = new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long' });
+    const stops = byDate[iso];
+    return `<div class="rec-day">
+      <h3><span>${dayName}</span><span class="rec-day-sub">${iso}</span></h3>
+      ${stops.length ? stops.map((s) => `
+        <div class="rec-stop">
+          <div class="rec-stop-head" data-open="${s.partner_id}">
+            <span class="rec-name">${s.is_new ? '<span class="badge-new">new</span> ' : ''}${esc(s.name || ('#' + s.partner_id))}</span>
+            <span class="rec-amount">${money.format(s.total_open || 0)}</span>
+          </div>
+          ${s.reason ? `<div class="rec-reason">${esc(s.reason)}</div>` : ''}
+        </div>`).join('') : '<div class="rec-empty">Nothing planned</div>'}
+    </div>`;
+  }).join('');
+
+  $('rec-days').querySelectorAll('[data-open]').forEach((el) => {
+    el.addEventListener('click', () => openDrawer(Number(el.dataset.open)));
+  });
+
+  // Anyone in the active book who's conspicuously absent from the week above
+  // — worth saying why, rather than just silently leaving them out.
+  const planned = new Set(d.stops.map((s) => s.partner_id));
+  const cd = await (await fetch('/api/customers?agency=all')).json();
+  const skipped = [];
+  cd.customers.forEach((c) => {
+    if (planned.has(c.partner_id) || !c.assigned) return;
+    if (c.status === 'legal') {
+      skipped.push({ c, why: 'In legal / write-off — a collector visit may not be the right next step; check with whoever owns the legal process.' });
+    } else if (c.status === 'resolved' && c.overdue_total > 0) {
+      skipped.push({ c, why: `Marked resolved but still shows ${money.format(c.overdue_total)} overdue — worth confirming the balance actually cleared.` });
+    } else if (c.oldest_days <= 0) {
+      skipped.push({ c, why: 'Nothing overdue yet — still within payment terms.' });
+    }
+  });
+  $('rec-skipped').classList.toggle('hidden', skipped.length === 0);
+  $('rec-skipped-list').innerHTML = skipped.map(({ c, why }) =>
+    `<li data-open="${c.partner_id}"><b>${esc(c.name)}</b> — ${esc(why)}</li>`).join('');
+  $('rec-skipped-list').querySelectorAll('[data-open]').forEach((el) => {
+    el.addEventListener('click', () => openDrawer(Number(el.dataset.open)));
+  });
+}
+
 // --------------------------------------------------------------- weekly plan
 
 async function loadPlan() {
@@ -524,7 +599,10 @@ function renderPlanDays() {
       const stop = state.planStops.find((s) => String(s.id) === sel.dataset.move);
       await fetch('/api/plan', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ partner_id: stop.partner_id, planned_date: sel.value, status: 'planned' }),
+        body: JSON.stringify({
+          partner_id: stop.partner_id, planned_date: sel.value, status: 'planned',
+          note: stop.note, reason: stop.reason,
+        }),
       });
       await fetch(`/api/plan/${stop.id}/delete`, { method: 'POST' });
       loadPlan();
@@ -762,6 +840,20 @@ function init() {
 
   $('plan-week').addEventListener('change', () => { state.planWeek = $('plan-week').value; loadPlan(); });
   $('btn-generate-plan').addEventListener('click', generatePlan);
+  $('btn-regen-rec').addEventListener('click', async () => {
+    if (!confirm('This replaces the current week\'s recommendations with a fresh proximity-based pass (only customers with a pinned location get considered), losing any hand-written reasons. Continue?')) return;
+    const dates = workWeekDates();
+    $('btn-regen-rec').disabled = true;
+    try {
+      await fetch('/api/plan/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ week: dates[0], days: 5 }),
+      });
+      await loadRecommendations();
+    } finally {
+      $('btn-regen-rec').disabled = false;
+    }
+  });
 
   $('cal-prev').addEventListener('click', () => shiftMonth(-1));
   $('cal-next').addEventListener('click', () => shiftMonth(1));
