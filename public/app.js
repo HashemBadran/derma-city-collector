@@ -3,6 +3,7 @@
 const state = {
   boot: null,
   customers: [],
+  sort: { key: 'overdue_total', dir: -1 },
   selected: null,
   scripts: [],
   scriptModalContext: null,
@@ -86,9 +87,15 @@ async function loadCustomers() {
   const d = await r.json();
   state.customers = d.customers;
 
-  $('s-count').textContent = d.grand_totals.count;
-  $('s-open').textContent = money.format(d.grand_totals.total_open);
-  $('s-overdue').textContent = money.format(d.grand_totals.overdue_total);
+  // `totals` is the currently-filtered set; `grand_totals` is the whole
+  // active book. Showing totals here means these numbers actually move as
+  // filters are applied, rather than always displaying the unfiltered book
+  // regardless of what's on screen. Label reflects which one is showing.
+  const filtersActive = [...p.keys()].some((k) => k !== 'agency');
+  $('s-count-label').textContent = filtersActive ? 'Showing' : 'Active book';
+  $('s-count').textContent = d.totals.count;
+  $('s-open').textContent = money.format(d.totals.total_open);
+  $('s-overdue').textContent = money.format(d.totals.overdue_total);
   $('s-agency').textContent = `${d.agency.count} · ${money.format(d.agency.total_open)}`;
   $('s-agency-wrap').classList.toggle('hidden', d.agency.count === 0);
 
@@ -99,7 +106,27 @@ async function loadCustomers() {
   areaSel.value = currentArea;
 
   renderAlerts(d.attention);
-  renderTable(d.customers);
+  renderTable(sortCustomers(d.customers));
+  updateSortHeaders();
+}
+
+function sortCustomers(list) {
+  const { key, dir } = state.sort;
+  return [...list].sort((a, b) => {
+    let av = a[key], bv = b[key];
+    if (typeof av === 'string') { av = av || ''; bv = bv || ''; return av.localeCompare(bv) * dir; }
+    return ((av ?? -Infinity) - (bv ?? -Infinity)) * dir;
+  });
+}
+
+function updateSortHeaders() {
+  document.querySelectorAll('#thead-row th.sortable').forEach((th) => {
+    th.classList.toggle('sort-active', th.dataset.sort === state.sort.key);
+    th.querySelector('.arrow')?.remove();
+    if (th.dataset.sort === state.sort.key) {
+      th.insertAdjacentHTML('beforeend', `<span class="arrow">${state.sort.dir === 1 ? '▲' : '▼'}</span>`);
+    }
+  });
 }
 
 function renderAlerts(attention) {
@@ -668,6 +695,17 @@ function init() {
   initTableResize();
 
   document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => switchView(t.dataset.view)));
+  document.querySelectorAll('#thead-row th.sortable').forEach((th) => {
+    th.addEventListener('click', () => {
+      if (state.sort.key === th.dataset.sort) {
+        state.sort.dir *= -1;
+      } else {
+        state.sort = { key: th.dataset.sort, dir: 1 };
+      }
+      renderTable(sortCustomers(state.customers));
+      updateSortHeaders();
+    });
+  });
   $('btn-sync').addEventListener('click', startSync);
   $('drawer-close').addEventListener('click', closeDrawer);
   $('scrim').addEventListener('click', closeDrawer);

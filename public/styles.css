@@ -136,6 +136,11 @@ thead th {
   font-size: 11px; text-transform: uppercase; letter-spacing: .04em; font-weight: 650;
   padding: 9px 12px; border-bottom: 1px solid var(--border-strong);
 }
+thead th.sortable { cursor: pointer; user-select: none; }
+thead th.sortable:hover { color: var(--text); }
+thead th.sortable .arrow { opacity: .5; font-size: 9px; margin-left: 3px; }
+thead th.sortable.sort-active { color: var(--accent-2); }
+thead th.sortable.sort-active .arrow { opacity: 1; }
 /* Header alignment always matches its column's data alignment (al-right /
    al-center below) so numbers and headers actually line up — previously
    headers defaulted to right/left while body cells had no alignment rule

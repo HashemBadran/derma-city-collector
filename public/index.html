@@ -39,7 +39,7 @@
 <!-- ======================= CUSTOMERS ======================= -->
 <section id="view-customers" class="view">
   <div class="summary-row">
-    <div class="stat"><span class="stat-label">Active book</span><span class="stat-value" id="s-count">0</span></div>
+    <div class="stat"><span class="stat-label" id="s-count-label">Active book</span><span class="stat-value" id="s-count">0</span></div>
     <div class="stat"><span class="stat-label">Total open</span><span class="stat-value" id="s-open">0</span></div>
     <div class="stat hot"><span class="stat-label">Overdue</span><span class="stat-value" id="s-overdue">0</span></div>
     <div class="stat muted" id="s-agency-wrap"><span class="stat-label">With agency</span><span class="stat-value" id="s-agency">0</span></div>
@@ -68,10 +68,15 @@
         <col class="col-next"><col class="col-pin">
       </colgroup>
       <thead>
-        <tr>
-          <th class="al-right">Customer</th><th class="al-center">Area</th><th class="al-center">Oldest</th>
-          <th class="al-right">Total Open</th><th class="al-right">Overdue</th>
-          <th class="al-center">Status</th><th class="al-center">Next action</th><th class="al-center">📍</th>
+        <tr id="thead-row">
+          <th class="al-right sortable" data-sort="name">Customer</th>
+          <th class="al-center sortable" data-sort="area">Area</th>
+          <th class="al-center sortable" data-sort="oldest_days">Oldest</th>
+          <th class="al-right sortable" data-sort="total_open">Total Open</th>
+          <th class="al-right sortable" data-sort="overdue_total">Overdue</th>
+          <th class="al-center sortable" data-sort="status">Status</th>
+          <th class="al-center sortable" data-sort="next_action_date">Next action</th>
+          <th class="al-center">📍</th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
