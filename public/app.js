@@ -196,6 +196,12 @@ async function openDrawer(partnerId) {
   $('d-agency-note').value = d.customer.agency_note || '';
   $('d-agency-since').textContent = d.customer.agency && d.customer.agency_date
     ? `Handed off ${d.customer.agency_date}` : '';
+  // Never leave a leftover pin/GPS reading from whichever customer was open
+  // before sitting in this box — real bug, caught live: five different
+  // customers ended up with the exact same "Use my location" reading because
+  // this field kept its value across drawer switches, so a later, unrelated
+  // click of Save silently reused it.
+  $('d-loc-input').value = '';
 
   renderContacts(d.contacts);
   renderVisits(d.visits);
