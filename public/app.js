@@ -15,6 +15,7 @@ const state = {
   drawerMarker: null,
   calMonth: null,
   calDays: {},
+  recStops: [],
 };
 
 const $ = (id) => document.getElementById(id);
@@ -513,6 +514,7 @@ async function loadRecommendations() {
   const dates = workWeekDates();
   const r = await fetch('/api/plan?week=' + dates[0]);
   const d = await r.json();
+  state.recStops = d.stops;
   const byDate = {};
   dates.forEach((iso) => { byDate[iso] = []; });
   d.stops.forEach((s) => { if (byDate[s.planned_date]) byDate[s.planned_date].push(s); });
@@ -522,22 +524,20 @@ async function loadRecommendations() {
   $('rec-days').innerHTML = dates.map((iso) => {
     const dayName = new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long' });
     const stops = byDate[iso];
-    return `<div class="rec-day">
+    return `<div class="rec-day" data-date="${iso}">
       <h3><span>${dayName}</span><span class="rec-day-sub">${iso}</span></h3>
+      <div class="rec-day-body">
       ${stops.length ? stops.map((s) => `
-        <div class="rec-stop">
-          <div class="rec-stop-head" data-open="${s.partner_id}">
+        <div class="rec-stop" data-stop-id="${s.id}" data-partner-id="${s.partner_id}">
+          <div class="rec-stop-head">
             <span class="rec-name">${s.is_new ? '<span class="badge-new">new</span> ' : ''}${esc(s.name || ('#' + s.partner_id))}</span>
             <span class="rec-amount">${money.format(s.total_open || 0)}</span>
           </div>
           ${s.reason ? `<div class="rec-reason">${esc(s.reason)}</div>` : ''}
-        </div>`).join('') : '<div class="rec-empty">Nothing planned</div>'}
+        </div>`).join('') : '<div class="rec-empty">Nothing planned — drop a customer here</div>'}
+      </div>
     </div>`;
   }).join('');
-
-  $('rec-days').querySelectorAll('[data-open]').forEach((el) => {
-    el.addEventListener('click', () => openDrawer(Number(el.dataset.open)));
-  });
 
   // Anyone in the active book who's conspicuously absent from the week above
   // — worth saying why, rather than just silently leaving them out.
@@ -559,6 +559,172 @@ async function loadRecommendations() {
     `<li data-open="${c.partner_id}"><b>${esc(c.name)}</b> — ${esc(why)}</li>`).join('');
   $('rec-skipped-list').querySelectorAll('[data-open]').forEach((el) => {
     el.addEventListener('click', () => openDrawer(Number(el.dataset.open)));
+  });
+}
+
+// --------------------------------------------------- rec drag-and-drop reorder
+
+async function savePlanStop(partner_id, planned_date, status, note, reason) {
+  const r = await fetch('/api/plan', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ partner_id, planned_date, status, note, reason }),
+  });
+  return r.json();
+}
+
+async function deletePlanStop(id) {
+  await fetch(`/api/plan/${id}/delete`, { method: 'POST' });
+}
+
+// Two cards trade days. Implemented as delete-both + reinsert-both so a stop
+// dropped onto its own day's existing UNIQUE(partner_id, planned_date) slot
+// never collides with the row it's displacing.
+async function swapStops(stopA, stopB) {
+  const dateA = stopA.planned_date;
+  const dateB = stopB.planned_date;
+  await Promise.all([deletePlanStop(stopA.id), deletePlanStop(stopB.id)]);
+  await Promise.all([
+    savePlanStop(stopA.partner_id, dateB, stopA.status, stopA.note, stopA.reason),
+    savePlanStop(stopB.partner_id, dateA, stopB.status, stopB.note, stopB.reason),
+  ]);
+}
+
+// Drops a single stop into a day, no swap. If that day already has a stop
+// for this partner (shouldn't normally happen) the upsert just overwrites it.
+async function moveStop(stop, newDate) {
+  if (stop.planned_date === newDate) return;
+  await deletePlanStop(stop.id);
+  await savePlanStop(stop.partner_id, newDate, stop.status, stop.note, stop.reason);
+}
+
+function initRecDragDrop() {
+  const container = $('rec-days');
+  if (!container || container.dataset.dragInit) return;
+  container.dataset.dragInit = '1';
+
+  const DRAG_THRESHOLD = 6;
+  let pointerId = null;
+  let startX = 0, startY = 0;
+  let dragging = false;
+  let sourceEl = null;
+  let sourceStop = null;
+  let ghost = null;
+  let currentTarget = null; // { kind: 'swap'|'day', el }
+  let justDragged = false;
+
+  function cleanup() {
+    if (ghost) { ghost.remove(); ghost = null; }
+    if (sourceEl) sourceEl.classList.remove('rec-dragging');
+    if (currentTarget) {
+      currentTarget.el.classList.remove(currentTarget.kind === 'swap' ? 'drag-over-swap' : 'drag-over-day');
+      currentTarget = null;
+    }
+    pointerId = null;
+    dragging = false;
+    sourceEl = null;
+    sourceStop = null;
+  }
+
+  function findStop(partnerId) {
+    return state.recStops.find((s) => s.partner_id === partnerId) || null;
+  }
+
+  container.addEventListener('pointerdown', (e) => {
+    const head = e.target.closest('.rec-stop-head');
+    if (!head) return;
+    const stopEl = head.closest('.rec-stop');
+    if (!stopEl) return;
+    pointerId = e.pointerId;
+    startX = e.clientX;
+    startY = e.clientY;
+    sourceEl = stopEl;
+    sourceStop = findStop(Number(stopEl.dataset.partnerId));
+    dragging = false;
+  });
+
+  container.addEventListener('pointermove', (e) => {
+    if (pointerId === null || e.pointerId !== pointerId || !sourceEl) return;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+
+    if (!dragging) {
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+      dragging = true;
+      sourceEl.setPointerCapture(pointerId);
+      sourceEl.classList.add('rec-dragging');
+      const rect = sourceEl.getBoundingClientRect();
+      ghost = document.createElement('div');
+      ghost.className = 'rec-drag-ghost';
+      ghost.innerHTML = sourceEl.querySelector('.rec-stop-head').outerHTML;
+      ghost.style.width = rect.width + 'px';
+      document.body.appendChild(ghost);
+    }
+
+    ghost.style.left = (e.clientX + 14) + 'px';
+    ghost.style.top = (e.clientY + 14) + 'px';
+    ghost.style.display = '';
+
+    ghost.style.pointerEvents = 'none';
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    ghost.style.pointerEvents = '';
+
+    if (currentTarget) {
+      currentTarget.el.classList.remove(currentTarget.kind === 'swap' ? 'drag-over-swap' : 'drag-over-day');
+      currentTarget = null;
+    }
+    if (under) {
+      const overStop = under.closest('.rec-stop');
+      if (overStop && overStop !== sourceEl) {
+        overStop.classList.add('drag-over-swap');
+        currentTarget = { kind: 'swap', el: overStop };
+      } else {
+        const overDay = under.closest('.rec-day');
+        if (overDay) {
+          overDay.classList.add('drag-over-day');
+          currentTarget = { kind: 'day', el: overDay };
+        }
+      }
+    }
+  });
+
+  async function finishDrag() {
+    const target = currentTarget;
+    const stop = sourceStop;
+    cleanup();
+    justDragged = true;
+    setTimeout(() => { justDragged = false; }, 0);
+    if (!target || !stop) return;
+
+    if (target.kind === 'swap') {
+      const otherStop = findStop(Number(target.el.dataset.partnerId));
+      if (!otherStop || otherStop.id === stop.id) return;
+      await swapStops(stop, otherStop);
+    } else if (target.kind === 'day') {
+      const newDate = target.el.dataset.date;
+      if (!newDate) return;
+      await moveStop(stop, newDate);
+    }
+    await loadRecommendations();
+  }
+
+  container.addEventListener('pointerup', (e) => {
+    if (pointerId === null || e.pointerId !== pointerId) return;
+    if (!dragging) { cleanup(); return; }
+    finishDrag();
+  });
+
+  container.addEventListener('pointercancel', (e) => {
+    if (pointerId === null || e.pointerId !== pointerId) return;
+    cleanup();
+  });
+
+  // Plain click (no drag) still opens the drawer.
+  container.addEventListener('click', (e) => {
+    if (justDragged) return;
+    const head = e.target.closest('.rec-stop-head');
+    if (!head) return;
+    const stopEl = head.closest('.rec-stop');
+    if (!stopEl) return;
+    openDrawer(Number(stopEl.dataset.partnerId));
   });
 }
 
@@ -787,6 +953,7 @@ function initTableResize() {
 function init() {
   initTheme();
   initTableResize();
+  initRecDragDrop();
 
   document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => switchView(t.dataset.view)));
   document.querySelectorAll('#thead-row th.sortable').forEach((th) => {

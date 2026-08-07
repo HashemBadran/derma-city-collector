@@ -247,14 +247,26 @@ tr.row-agency:hover { opacity: 1; }
   border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: baseline;
 }
 .rec-day h3 .rec-day-sub { font-size: 11px; color: var(--text-dim); font-weight: 400; }
-.rec-stop { padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+.rec-day-body { min-height: 40px; }
+.rec-stop { padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 12.5px; touch-action: none; user-select: none; -webkit-user-select: none; }
 .rec-stop:last-child { border-bottom: none; }
-.rec-stop .rec-stop-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; cursor: pointer; }
+.rec-stop .rec-stop-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; cursor: grab; }
 .rec-stop .rec-stop-head:hover .rec-name { color: var(--accent-2); }
 .rec-name { font-weight: 700; }
 .rec-amount { font-variant-numeric: tabular-nums; color: var(--danger); white-space: nowrap; }
 .rec-reason { color: var(--text-dim); margin-top: 4px; line-height: 1.5; }
-.rec-empty { padding: 14px; color: var(--text-dim); font-size: 12.5px; text-align: center; }
+.rec-empty { padding: 14px; color: var(--text-dim); font-size: 12.5px; text-align: center; pointer-events: none; }
+
+.rec-stop.rec-dragging { opacity: 0.35; }
+.rec-stop.drag-over-swap { background: color-mix(in srgb, var(--accent-2) 18%, transparent); outline: 2px dashed var(--accent-2); outline-offset: -2px; }
+.rec-day.drag-over-day .rec-day-body { background: color-mix(in srgb, var(--accent-2) 10%, transparent); outline: 2px dashed var(--accent-2); outline-offset: -2px; }
+.rec-drag-ghost {
+  position: fixed; z-index: 500; pointer-events: none; opacity: 0.92;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+  padding: 10px 14px; font-size: 12.5px; box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  width: 240px;
+}
+.rec-drag-ghost .rec-stop-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .rec-skipped { margin-top: 20px; }
 .rec-skipped h3 { font-size: 13px; }
 .rec-skipped ul { padding-left: 18px; font-size: 12.5px; color: var(--text-dim); }
