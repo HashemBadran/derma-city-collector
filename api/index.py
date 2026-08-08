@@ -63,7 +63,19 @@ BUSINESS_TZ = ZoneInfo(CONFIG.get('timezone', 'Asia/Riyadh'))
 # side error message below couldn't explain.
 MAX_IMAGE_BYTES = 3 * 1024 * 1024
 
-db.init()
+# Run at import time so most cold starts pay this cost once, up front — but
+# never let it take the whole function down. A Turso hiccup (bad token,
+# paused database, wrong URL) used to raise here, which crashes the import
+# itself and turns every route into an opaque FUNCTION_INVOCATION_FAILED
+# with no diagnostic. Deferring the failure to request time means each
+# request instead gets a real 503 explaining what's wrong, and the next
+# cold start simply retries db.init() on its own.
+DB_INIT_ERROR = None
+try:
+    db.init()
+except Exception as exc:
+    DB_INIT_ERROR = str(exc)
+    traceback.print_exc()
 
 
 def business_now():
@@ -239,6 +251,8 @@ class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = self._path()
         params = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+        if DB_INIT_ERROR:
+            return self._error(503, f'Database unavailable: {DB_INIT_ERROR}')
         try:
             if path == '/api/bootstrap':
                 return self.api_bootstrap()
@@ -269,6 +283,8 @@ class handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = self._path()
+        if DB_INIT_ERROR:
+            return self._error(503, f'Database unavailable: {DB_INIT_ERROR}')
         try:
             if path == '/api/sync':
                 return self.api_sync_trigger()
